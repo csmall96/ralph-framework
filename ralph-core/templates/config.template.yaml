@@ -1,0 +1,49 @@
+# Ralph Variant Configuration
+# Copy this template and customize for your variant
+
+# Variant name (used in logs and messages)
+name: ralph-{variant}
+
+# Short description of what this variant does
+description: "{description}"
+
+# Where runtime data lives (prd.json, progress.txt, archive/)
+# Relative to project root, or absolute path
+data_dir: scripts/ralph-{variant}
+
+# Quality checks to run before committing
+# Each check has: name, command, required (true = must pass, false = warning only)
+quality_checks:
+  - name: typecheck
+    command: "{typecheck_command}"
+    required: true
+  - name: test
+    command: "{test_command}"
+    required: true
+  # - name: lint
+  #   command: "{lint_command}"
+  #   required: false
+
+# Files Claude should read FIRST for project context
+# Relative to project root
+context_files:
+  - README.md
+  # - CLAUDE.md
+  # - docs/ARCHITECTURE.md
+
+# Git branch prefix for this variant's work
+branch_prefix: ralph/
+
+# Commit message format
+# Available placeholders: {story_id}, {story_title}
+commit_format: "feat: {story_id} - {story_title}"
+
+# Variant-specific instructions appended to CORE.md
+# Use | for multi-line YAML strings
+custom_instructions: |
+  ## {Variant Name}-Specific Guidelines
+
+  Add domain-specific guidance here:
+  - What patterns to follow
+  - What tools are available
+  - What to watch out for
