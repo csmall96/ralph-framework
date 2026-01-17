@@ -11,7 +11,12 @@ description: "{description}"
 # Relative to project root, or absolute path
 data_dir: scripts/ralph-{variant}
 
-# Quality checks to run before committing
+# Does this variant commit code?
+# true (default): Manages branches, runs quality checks, commits changes
+# false: No git operations, no commits (for QA, research, monitoring agents)
+requires_git: true
+
+# Quality checks to run before committing (only used when requires_git: true)
 # Each check has: name, command, required (true = must pass, false = warning only)
 quality_checks:
   - name: typecheck

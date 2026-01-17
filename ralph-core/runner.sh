@@ -47,11 +47,13 @@ yaml_get() {
 VARIANT_NAME=$(yaml_get "name" "$CONFIG_FILE")
 DATA_DIR=$(yaml_get "data_dir" "$CONFIG_FILE")
 BRANCH_PREFIX=$(yaml_get "branch_prefix" "$CONFIG_FILE")
+REQUIRES_GIT=$(yaml_get "requires_git" "$CONFIG_FILE")
 
 # Default values
 VARIANT_NAME=${VARIANT_NAME:-"ralph"}
 DATA_DIR=${DATA_DIR:-"scripts/ralph"}
 BRANCH_PREFIX=${BRANCH_PREFIX:-"ralph/"}
+REQUIRES_GIT=${REQUIRES_GIT:-"true"}  # Default to true for backward compatibility
 
 # Find project root (go up from variant dir until we find .git or reach /)
 find_project_root() {
@@ -81,37 +83,39 @@ ARCHIVE_DIR="$DATA_DIR/archive"
 LAST_BRANCH_FILE="$DATA_DIR/.last-branch"
 
 # ============================================================================
-# ARCHIVE PREVIOUS RUN (if branch changed)
+# ARCHIVE PREVIOUS RUN (if branch changed) — only for git-based variants
 # ============================================================================
 
-if [ -f "$PRD_FILE" ] && [ -f "$LAST_BRANCH_FILE" ]; then
-  CURRENT_BRANCH=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
-  LAST_BRANCH=$(cat "$LAST_BRANCH_FILE" 2>/dev/null || echo "")
+if [ "$REQUIRES_GIT" = "true" ]; then
+  if [ -f "$PRD_FILE" ] && [ -f "$LAST_BRANCH_FILE" ]; then
+    CURRENT_BRANCH=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
+    LAST_BRANCH=$(cat "$LAST_BRANCH_FILE" 2>/dev/null || echo "")
 
-  if [ -n "$CURRENT_BRANCH" ] && [ -n "$LAST_BRANCH" ] && [ "$CURRENT_BRANCH" != "$LAST_BRANCH" ]; then
-    DATE=$(date +%Y-%m-%d)
-    # Strip branch prefix for folder name
-    FOLDER_NAME=$(echo "$LAST_BRANCH" | sed "s|^${BRANCH_PREFIX}||")
-    ARCHIVE_FOLDER="$ARCHIVE_DIR/$DATE-$FOLDER_NAME"
+    if [ -n "$CURRENT_BRANCH" ] && [ -n "$LAST_BRANCH" ] && [ "$CURRENT_BRANCH" != "$LAST_BRANCH" ]; then
+      DATE=$(date +%Y-%m-%d)
+      # Strip branch prefix for folder name
+      FOLDER_NAME=$(echo "$LAST_BRANCH" | sed "s|^${BRANCH_PREFIX}||")
+      ARCHIVE_FOLDER="$ARCHIVE_DIR/$DATE-$FOLDER_NAME"
 
-    echo "Archiving previous run: $LAST_BRANCH"
-    mkdir -p "$ARCHIVE_FOLDER"
-    [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
-    [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
-    echo "   Archived to: $ARCHIVE_FOLDER"
+      echo "Archiving previous run: $LAST_BRANCH"
+      mkdir -p "$ARCHIVE_FOLDER"
+      [ -f "$PRD_FILE" ] && cp "$PRD_FILE" "$ARCHIVE_FOLDER/"
+      [ -f "$PROGRESS_FILE" ] && cp "$PROGRESS_FILE" "$ARCHIVE_FOLDER/"
+      echo "   Archived to: $ARCHIVE_FOLDER"
 
-    # Reset progress file for new run
-    echo "# Ralph Progress Log ($VARIANT_NAME)" > "$PROGRESS_FILE"
-    echo "Started: $(date)" >> "$PROGRESS_FILE"
-    echo "---" >> "$PROGRESS_FILE"
+      # Reset progress file for new run
+      echo "# Ralph Progress Log ($VARIANT_NAME)" > "$PROGRESS_FILE"
+      echo "Started: $(date)" >> "$PROGRESS_FILE"
+      echo "---" >> "$PROGRESS_FILE"
+    fi
   fi
-fi
 
-# Track current branch
-if [ -f "$PRD_FILE" ]; then
-  CURRENT_BRANCH=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
-  if [ -n "$CURRENT_BRANCH" ]; then
-    echo "$CURRENT_BRANCH" > "$LAST_BRANCH_FILE"
+  # Track current branch
+  if [ -f "$PRD_FILE" ]; then
+    CURRENT_BRANCH=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
+    if [ -n "$CURRENT_BRANCH" ]; then
+      echo "$CURRENT_BRANCH" > "$LAST_BRANCH_FILE"
+    fi
   fi
 fi
 
@@ -131,15 +135,19 @@ cd "$PROJECT_ROOT"
 echo "Working directory: $(pwd)"
 echo "Variant: $VARIANT_NAME"
 echo "Data directory: $DATA_DIR"
+echo "Requires git: $REQUIRES_GIT"
 
-if ! git diff --quiet 2>/dev/null || ! git diff --staged --quiet 2>/dev/null; then
-  echo ""
-  echo "Warning: You have uncommitted changes."
-  echo "   Ralph will commit its changes. Consider stashing yours first."
-  read -p "   Continue anyway? (y/N) " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 1
+# Only check for uncommitted changes if this variant commits code
+if [ "$REQUIRES_GIT" = "true" ]; then
+  if ! git diff --quiet 2>/dev/null || ! git diff --staged --quiet 2>/dev/null; then
+    echo ""
+    echo "Warning: You have uncommitted changes."
+    echo "   Ralph will commit its changes. Consider stashing yours first."
+    read -p "   Continue anyway? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
   fi
 fi
 

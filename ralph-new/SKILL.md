@@ -38,7 +38,19 @@ What should this variant be called? (kebab-case, e.g., `ralph-python`, `ralph-qa
 ### 2. Description
 What is this variant optimized for? One sentence.
 
-### 3. Quality Checks
+### 3. Does This Variant Commit Code?
+**This is critical for determining the agent's behavior.**
+
+- **Yes (requires_git: true)**: The agent writes code, manages branches, runs quality checks, and commits changes. This is the default for development agents.
+- **No (requires_git: false)**: The agent performs tasks (QA, research, monitoring, data gathering) but does NOT commit code. It only updates prd.json with results and progress.txt with logs.
+
+Examples of `requires_git: false` variants:
+- QA agents that test websites with Playwright
+- Research agents that gather information
+- Monitoring agents that check for conditions
+- Audit agents that analyze and report
+
+### 4. Quality Checks (only if requires_git: true)
 What commands validate the work? For each:
 - Command to run (e.g., `pytest`, `npm run build`, `mypy .`)
 - Is it required (must pass) or optional (warning only)?
@@ -48,20 +60,26 @@ Common examples:
 - Tests: `npm test`, `pytest`, `go test ./...`
 - Lint: `eslint .`, `ruff check .`, `golangci-lint run`
 
-If this variant doesn't produce code (e.g., QA testing), quality checks may be empty.
+Skip this question if `requires_git: false`.
 
-### 4. Context Files
+### 5. Context Files
 What files should Claude read FIRST for project understanding?
 - `README.md` (common)
 - `CLAUDE.md` (if exists)
 - `docs/ARCHITECTURE.md`
 - `pyproject.toml`, `package.json`, etc.
 
-### 5. Custom Instructions
+For non-git variants, this might include:
+- URL lists to audit
+- Pricing rules or test criteria
+- API documentation
+
+### 6. Custom Instructions
 Any domain-specific guidance? Examples:
 - "Use Playwright MCP for browser testing"
 - "Follow PEP 8 style"
-- "This variant doesn't commit code, only updates prd.json with results"
+- "Take screenshots as evidence and save to scripts/{variant}/evidence/"
+- "Output findings in JSON format"
 
 ---
 
@@ -118,6 +136,7 @@ mkdir -p scripts/ralph-{name}
 **User input:**
 - Name: `ralph-python`
 - Description: "Python backend development"
+- Commits code: **Yes** (`requires_git: true`)
 - Quality checks: `pytest` (required), `mypy .` (required), `ruff check .` (optional)
 - Context files: `README.md`, `pyproject.toml`
 - Custom instructions: "Follow PEP 8. Use type hints everywhere."
@@ -127,6 +146,9 @@ mkdir -p scripts/ralph-{name}
 name: ralph-python
 description: "Python backend development"
 data_dir: scripts/ralph-python
+
+# This variant writes and commits code
+requires_git: true
 
 quality_checks:
   - name: test
@@ -160,9 +182,10 @@ custom_instructions: |
 **User input:**
 - Name: `ralph-qa-ecommerce`
 - Description: "Browser-based ecommerce validation using Playwright"
-- Quality checks: (none — this is testing, not coding)
+- Commits code: **No** (`requires_git: false`)
+- Quality checks: (skipped — not applicable)
 - Context files: `docs/test-urls.md`, `docs/pricing-rules.md`
-- Custom instructions: "Use Playwright MCP. Take screenshots as evidence. Don't commit code."
+- Custom instructions: "Use Playwright MCP. Take screenshots as evidence."
 
 **Generated config.yaml:**
 ```yaml
@@ -170,14 +193,15 @@ name: ralph-qa-ecommerce
 description: "Browser-based ecommerce validation using Playwright"
 data_dir: scripts/ralph-qa-ecommerce
 
+# This variant does NOT commit code — it's a QA/testing agent
+requires_git: false
+
+# No quality checks needed (not writing code)
 quality_checks: []
 
 context_files:
   - docs/test-urls.md
   - docs/pricing-rules.md
-
-branch_prefix: ralph-qa/
-commit_format: "test: {story_id} - {story_title}"
 
 custom_instructions: |
   ## QA Variant — Browser Testing Mode
@@ -196,10 +220,14 @@ custom_instructions: |
   2. Execute browser actions
   3. Verify each acceptance criterion
   4. Take screenshot as evidence (save to scripts/ralph-qa-ecommerce/evidence/)
-  5. Update prd.json with pass/fail
+  5. Update prd.json: set passes: true/false and add notes with findings
+  6. Append summary to progress.txt
 
-  ### No Git Commits
-  This variant doesn't commit code. It only updates prd.json with results.
+  ### Output
+  Your output is:
+  - Updated prd.json with pass/fail status and notes
+  - Screenshots in scripts/ralph-qa-ecommerce/evidence/
+  - Progress log in progress.txt
 ```
 
 ---
